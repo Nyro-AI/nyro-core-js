@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# La compuerta de @nyro-ai/core. El CI de GitHub es el detector.
+#
+# Este paquete lo instalan los cuatro verticales POR TAG, y npm corre su
+# `prepare` al instalarlo desde git. O sea que un `dist/` que no compile aquí no
+# rompe este repo: rompe el `npm ci` de quien lo consuma, y se entera en su CI y
+# no en el nuestro. Por eso aquí se construye de verdad antes de dejar empujar.
+#
+# Saltarlo en un apuro:  git push --no-verify
+set -uo pipefail
+
+RAIZ="$(git rev-parse --show-toplevel)"
+cd "$RAIZ"
+fallo=0
+
+paso() {
+  local etiqueta="$1"; shift
+  local t0 salida rc
+  t0=$(date +%s)
+  salida="$("$@" 2>&1)"; rc=$?
+  if [ $rc -eq 0 ]; then
+    printf '  %-42s ok  (%ss)\n' "$etiqueta" "$(( $(date +%s) - t0 ))"
+  else
+    printf '  %-42s FALLA\n' "$etiqueta"
+    echo "$salida" | tail -25 | sed 's/^/      /'
+    fallo=1
+  fi
+}
+
+echo "pre-push · @nyro-ai/core  (la compuerta; el CI de GitHub es el detector)"
+
+# BORRAR UNA RAMA NO AÑADE CÓDIGO, ASÍ QUE NO HAY NADA QUE VALIDAR.
+# Sin esto, borrar una rama ya mergeada corre la suite entera y puede fallar por
+# cosas que no tienen nada que ver con el borrado.
+lineas=0; borrados=0
+while read -r _ sha_local _ _; do
+  [ -z "${sha_local:-}" ] && continue
+  lineas=$((lineas + 1))
+  case "$sha_local" in 0000000*) borrados=$((borrados + 1)) ;; esac
+done
+if [ "$lineas" -gt 0 ] && [ "$borrados" -eq "$lineas" ]; then
+  echo "  · solo borrados de rama ($borrados): no hay commit que validar."
+  echo "todo bien, empujando."
+  exit 0
+fi
+
+# QUE LAS HERRAMIENTAS CORRAN, NO SOLO QUE ESTÉN.
+# Lección cara de `nyro-servicios`: con `node_modules` a medias, `npm ls` salía
+# 0 y `npm test` salía 0 con el compilador roto — solo el `build` lo paraba, de
+# rebote. Comprobar que el directorio existe no dice nada.
+if [ ! -d node_modules ]; then
+  echo "  · FALTA node_modules. Créalo con: npm install"
+  echo "    Verde aquí NO diría nada."
+  exit 1
+fi
+for _bin in tsc vitest; do
+  if ! "node_modules/.bin/$_bin" --version >/dev/null 2>&1; then
+    echo "  · $_bin no corre desde node_modules/.bin: el árbol está a medias."
+    echo "    Arréglalo con: rm -rf node_modules && npm install"
+    exit 1
+  fi
+done
+
+paso "tipos" npx tsc -p tsconfig.json --noEmit
+paso "pruebas" npx vitest run
+# El build no es redundante con los tipos: genera el `dist/` y los `.d.ts` que
+# es LO QUE DE VERDAD se instala en los verticales.
+paso "build (el dist que instalan los verticales)" npm run build --silent
+
+# LA VERSIÓN DEL package.json Y LA DE index.ts TIENEN QUE CUADRAR.
+# Si divergen, un vertical puede creer que tiene una versión y estar corriendo
+# otra, y eso no se ve hasta que algo se comporta raro en producción.
+paso "package.json y VERSION dicen lo mismo" bash -c '
+  a=$(node -p "require(\"./package.json\").version")
+  b=$(grep -oE "VERSION = .[0-9]+\.[0-9]+\.[0-9]+" src/index.ts | grep -oE "[0-9]+\.[0-9]+\.[0-9]+")
+  [ "$a" = "$b" ] || { echo "package.json=$a  index.ts=$b"; exit 1; }'
+
+# El barrido sobre el propio paquete: ni aquí puede colarse el modismo.
+paso "el barrido no se contradice a sí mismo" node bin/barrido-fechas.mjs src
+
+if [ "$fallo" -ne 0 ]; then
+  echo
+  echo "push abortado. Arregla lo de arriba, o 'git push --no-verify' si sabes lo que haces."
+  exit 1
+fi
+echo
+echo "todo bien, empujando."

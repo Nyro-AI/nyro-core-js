@@ -1,0 +1,59 @@
+# El detector. La compuerta es `.githooks/pre-push`; esto corre lo mismo desde
+# una instalación limpia, que es lo que la compuerta no puede garantizar.
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+jobs:
+  paquete:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      # `npm ci` y no `npm install`: instala EXACTAMENTE el lock commiteado.
+      - run: npm ci
+
+      - run: npx tsc -p tsconfig.json --noEmit
+      - run: npx vitest run
+
+      # El `dist/` es lo que de verdad se instala en los cuatro verticales
+      # (npm corre `prepare` al instalar desde git), así que tiene que construir.
+      - run: npm run build
+
+      # Que el paquete sea CONSUMIBLE, no solo que compile. Se empaqueta como lo
+      # haría npm y se comprueba que el tarball trae los ficheros que el
+      # `exports` promete. Un `files` mal puesto compila perfecto aquí y falla en
+      # el `npm ci` del vertical, que es donde ya no es nuestro problema — y ahí
+      # es tarde.
+      - name: El tarball trae lo que exports promete
+        run: |
+          npm pack --silent >/dev/null
+          tar -tzf nyro-ai-core-*.tgz | sed 's|^package/||' | sort > /tmp/dentro.txt
+          for f in dist/index.js dist/index.d.ts dist/fechas.js dist/fechas.d.ts bin/barrido-fechas.mjs package.json; do
+            grep -qx "$f" /tmp/dentro.txt || { echo "FALTA en el tarball: $f"; exit 1; }
+          done
+          echo "ok: $(wc -l < /tmp/dentro.txt) ficheros"
+
+      # El barrido, sobre su propia fuente.
+      - run: node bin/barrido-fechas.mjs src
+
+      # SOLO EN UN TAG: que el tag y la versión digan lo mismo.
+      # Los verticales instalan por tag (`#v0.1.0`). Un tag que apunte a otra
+      # versión hace que alguien crea que tiene una cosa y tenga otra, y eso no
+      # se ve hasta que algo se comporta raro en producción.
+      - name: El tag y la versión cuadran
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          IDX="$(grep -oE "VERSION = .[0-9]+\.[0-9]+\.[0-9]+" src/index.ts | grep -oE "[0-9]+\.[0-9]+\.[0-9]+")"
+          echo "tag=$TAG  package.json=$PKG  index.ts=$IDX"
+          [ "$TAG" = "$PKG" ] && [ "$TAG" = "$IDX" ] || { echo "NO CUADRAN"; exit 1; }

@@ -50,6 +50,50 @@ describe('masDias', () => {
   it('sumar cero no mueve nada', () => expect(masDias('2026-08-02', 0)).toBe('2026-08-02'));
 });
 
+describe('masDias se niega con lo que no es una fecha', () => {
+  /**
+   * DESDE LA v0.2.0, y es un cambio de comportamiento. Antes devolvía
+   * "NaN-NaN-NaN", que es inventarse una fecha: el string sigue viaje hasta una
+   * columna `date` y el fallo sale tres capas más allá. Lo encontró ERP Retail.
+   */
+  it.each([
+    ['basura'],
+    [''],
+    ['2026-10'],          // falta un trozo
+    ['2026-10-25-3'],     // sobra uno
+    ['a-b-c'],
+    ['2026/10/25'],       // otro separador
+  ])('lanza con %j', (malo) => {
+    expect(() => masDias(malo, 1)).toThrow(TypeError);
+  });
+
+  it.each([
+    ['--'],
+    ['2026--25'],
+    [' - - '],
+  ])('lanza con %j, que es el hueco que Number convierte en 0', (malo) => {
+    // La guarda original de retail comprobaba Number.isFinite sobre cada trozo,
+    // y `Number('')` es 0: estos tres pasaban y salía una fecha del año 0. Por
+    // eso aquí la comprobación es de FORMA sobre el string, antes de convertir.
+    expect(Number(malo.split('-')[1])).toBe(0);   // la trampa, a la vista
+    expect(() => masDias(malo, 1)).toThrow(TypeError);
+  });
+
+  it('el mensaje dice qué recibió, para no tener que buscarlo', () => {
+    expect(() => masDias('basura', 1)).toThrow(/"basura"/);
+  });
+
+  it('pero 2026-13-45 SÍ pasa: la comprobación es de forma, no de calendario', () => {
+    // Y se normaliza, que es justo lo que se quiere: sumar días a fin de mes
+    // tiene que rodar al siguiente.
+    expect(masDias('2026-13-45', 0)).toBe('2027-02-14');
+  });
+
+  it('y 2026-1-5 también, sin el relleno', () => {
+    expect(masDias('2026-1-5', 1)).toBe('2026-01-06');
+  });
+});
+
 describe('el reloj del dispositivo no pone el día', () => {
   /**
    * LA ZONA SE PONE EN EL ENTORNO DE UN PROCESO HIJO, y esto es el corazón de la

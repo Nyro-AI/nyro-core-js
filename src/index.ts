@@ -19,9 +19,9 @@
  *     de ellos aquí sin unificarlo primero sería elegir a ciegas la versión de
  *     un vertical y rompérsela a los otros tres.
  *
- * Por eso la v0.1.0 lleva solo fechas: es lo único que estaba probado idéntico.
+ * Por eso la v0.1.0 llevó solo fechas: es lo único que estaba probado idéntico.
  */
 export { PR_TZ, aISOenPR, hoyPR, masDias } from './fechas.js';
 
 /** La versión del paquete. El CI comprueba que cuadre con el tag. */
-export const VERSION = '0.1.0';
+export const VERSION = '0.2.0';

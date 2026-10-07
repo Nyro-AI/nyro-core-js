@@ -65,18 +65,57 @@ export function hoyPR(): string {
 }
 
 /**
- * Suma (o resta) días a un YYYY-MM-DD.
+ * La forma de un YYYY-MM-DD. Tres grupos de dígitos separados por guiones.
+ *
+ * ES UNA COMPROBACIÓN DE FORMA Y NO DE CALENDARIO, y la distinción es el centro
+ * del asunto: `2026-13-45` PASA a propósito. No es una fecha, pero sí es algo que
+ * `Date.UTC` sabe normalizar, y esa normalización es justo lo que se quiere —
+ * sumar 40 días a fin de mes tiene que rodar al mes siguiente—. Lo que se corta
+ * es lo que NO son tres números: ahí no hay nada que normalizar.
+ *
+ * `\d+` y no `\d{4}-\d{2}-\d{2}` para no rechazar `2026-1-5`, que es
+ * inequívoco y que `Date.UTC` resuelve igual. El rigor que hace falta aquí es el
+ * de distinguir una fecha de una cadena cualquiera, no el de imponer el relleno.
+ */
+const FORMA = /^\d+-\d+-\d+$/;
+
+/**
+ * Suma (o resta) días a un YYYY-MM-DD. Se NIEGA con lo que no sea una fecha.
  *
  * La cuenta va en UTC a propósito: sobre una fecha suelta, sin hora, no hay zona
  * que aplicar, y hacerla con un `Date` local puede saltarse un día en los bordes
  * de horario de verano de quien esté mirando.
  *
- * Los `?? NaN` son por `noUncheckedIndexedAccess`, que este paquete lleva puesto
- * para compilar bajo el más estricto de los cuatro verticales. No cambian nada:
- * `Number(undefined)` ya era NaN y una fecha mal formada ya salía "NaN-NaN-NaN".
+ * POR QUÉ LANZA, desde la v0.2.0. Hasta la v0.1.0 devolvía `"NaN-NaN-NaN"` con
+ * una entrada mala. Eso es inventarse una fecha: un string con forma de fecha que
+ * no es una fecha sigue viaje hasta una columna `date` y el fallo aparece tres
+ * capas más allá, sin nada que lo ate al sitio donde se coló. Mejor romper donde
+ * se metió la basura.
+ *
+ * Lo encontró la sesión de ERP Retail al adoptar el paquete, y escribieron la
+ * guarda en su propio repo antes que migrar a ciegas — «migrar a ciegas habría
+ * sido cambiar duplicación por una REGRESIÓN, que es peor negocio». Tenían razón
+ * en eso y en que el sitio del arreglo era este, no el suyo.
+ *
+ * Al traerla se le cerró un agujero que su versión tenía. La suya comprobaba
+ * `Number.isFinite` sobre cada trozo, y `Number('')` es 0:
+ *
+ *     "--"        ->  [0, 0, 0]   pasaba, y salía una fecha del año 0
+ *     "2026--25"  ->  idem
+ *     " - - "     ->  idem
+ *
+ * Por eso aquí la comprobación es de FORMA sobre el string, antes de convertir
+ * nada: el hueco entre dos guiones no es un número, aunque `Number` diga que sí.
  */
 export function masDias(iso: string, dias: number): string {
+  if (typeof iso !== 'string' || !FORMA.test(iso)) {
+    throw new TypeError(
+      `masDias esperaba un YYYY-MM-DD y recibió ${JSON.stringify(iso)}`,
+    );
+  }
   const cachos = iso.split('-').map(Number);
+  // Los `?? NaN` siguen por `noUncheckedIndexedAccess`: el compilador no sabe que
+  // la regex ya garantizó que son tres. Inalcanzables, pero no cuesta nada.
   const y = cachos[0] ?? NaN;
   const m = cachos[1] ?? NaN;
   const d = cachos[2] ?? NaN;

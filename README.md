@@ -4,7 +4,7 @@ La capa de librería de los ERPs de Nyro: **lógica de negocio sin interfaz**,
 compartida por los cuatro verticales (servicios, retail, dealer, restaurante).
 
 ```bash
-npm i "git+https://github.com/Nyro-AI/nyro-core-js.git#v0.1.0"
+npm i "git+https://github.com/Nyro-AI/nyro-core-js.git#v0.2.0"
 ```
 
 ```ts
@@ -59,8 +59,34 @@ versiones, no copiar una.
 PR_TZ                       // 'America/Puerto_Rico'
 hoyPR(): string             // el día de HOY del negocio, YYYY-MM-DD
 aISOenPR(d?: Date): string  // un instante → el día de PR al que pertenece
-masDias(iso, n): string     // suma/resta días a un YYYY-MM-DD
+masDias(iso, n): string     // suma/resta días a un YYYY-MM-DD; LANZA si no es una fecha
 ```
+
+### v0.2.0 — `masDias` se niega con lo que no es una fecha
+
+**Cambio de comportamiento.** Hasta la v0.1.0 devolvía `"NaN-NaN-NaN"`:
+
+```ts
+masDias('basura', 1)
+// v0.1.0 →  "NaN-NaN-NaN"
+// v0.2.0 →  TypeError: masDias esperaba un YYYY-MM-DD y recibió "basura"
+```
+
+Devolver `"NaN-NaN-NaN"` es inventarse una fecha: ese string sigue viaje hasta una
+columna `date` y el fallo aparece tres capas más allá, sin nada que lo ate al
+sitio donde se coló.
+
+Lo encontró la sesión de **ERP Retail** al adoptar el paquete, y escribió la
+guarda en su propio repo antes que migrar a ciegas. Al traerla aquí se le cerró un
+agujero: su versión comprobaba `Number.isFinite` sobre cada trozo, y `Number('')`
+es `0`, así que `"--"`, `"2026--25"` y `" - - "` pasaban y salía una fecha del año
+cero. Aquí la comprobación es de **forma sobre el string**, antes de convertir nada.
+
+**Es de forma y no de calendario**, y la distinción importa: `2026-13-45` **pasa a
+propósito** y se normaliza a `2027-02-14`, porque sumar 40 días a fin de mes tiene
+que rodar al mes siguiente. Lo que se corta es lo que no son tres números.
+
+Si algo vuestro dependía del `"NaN-NaN-NaN"`, miradlo antes de subir.
 
 **El bug que cierra.** `new Date().toISOString().slice(0, 10)` convierte a UTC.
 PR va en UTC-4 todo el año, así que a partir de las 8 pm devuelve el día de

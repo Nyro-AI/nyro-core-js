@@ -1,20 +1,35 @@
 {
   "name": "@nyro-ai/core",
-  "version": "0.1.0",
-  "description": "La capa de librería de los ERPs de Nyro: lógica de negocio sin interfaz.",
+  "version": "0.2.0",
+  "description": "La capa de librer\u00eda de los ERPs de Nyro: l\u00f3gica de negocio sin interfaz.",
   "license": "UNLICENSED",
   "type": "module",
   "private": true,
-  "files": ["dist", "src", "bin"],
+  "files": [
+    "dist",
+    "src",
+    "bin"
+  ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
-    "./fechas": { "types": "./dist/fechas.d.ts", "import": "./dist/fechas.js" },
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./fechas": {
+      "types": "./dist/fechas.d.ts",
+      "import": "./dist/fechas.js"
+    },
     "./package.json": "./package.json"
   },
-  "bin": { "nyro-barrido-fechas": "./bin/barrido-fechas.mjs" },
-  "repository": { "type": "git", "url": "git+https://github.com/Nyro-AI/nyro-core-js.git" },
+  "bin": {
+    "nyro-barrido-fechas": "./bin/barrido-fechas.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Nyro-AI/nyro-core-js.git"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",

@@ -78,8 +78,14 @@ export function montoValido(s: string): boolean {
  * son el mismo: no hay número. Para quien VALIDA no lo son, y para eso está
  * `montoValido`.
  *
- * `Math.round` y no `Math.trunc`: 0.005 son medio centavo y redondear es lo que
- * hace cualquier caja. A partir de aquí no hay un float en el camino del dinero.
+ * `Math.round` Y NO `Math.trunc`, Y EL MOTIVO NO ES EL QUE PARECE. No redondea
+ * medios centavos: la regex ya rechaza el tercer decimal, así que `0.005` no
+ * llega aquí. Lo que arregla es el error del binario, que sí llega:
+ *
+ *     Number('8.2') * 100  =  819.9999999999999
+ *
+ * Con `trunc` eso son $8.19. Un centavo por línea, en silencio, en el lado malo.
+ * A partir de aquí no hay un float en el camino del dinero.
  *
  * OJO AL ADAPTARLO: hay verticales que necesitan `undefined` y no `null` para
  * que la clave no se serialice y el campo no viaje (backends con

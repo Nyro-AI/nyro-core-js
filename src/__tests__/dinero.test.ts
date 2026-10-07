@@ -86,10 +86,18 @@ describe('el vacío: aceptable, pero sin número', () => {
 });
 
 describe('centavos sin float en el camino', () => {
-  it('redondea el medio centavo hacia arriba, como una caja', () => {
-    // `Math.trunc` daría 0 y se perdería medio centavo por línea.
-    expect(montoACents('0,01')).toBe(1);
-    expect(montoACents('0,99')).toBe(99);
+  it('el medio centavo NO llega aquí: lo para la regex', () => {
+    // Importa decirlo porque el instinto es que `Math.round` esté para esto, y
+    // no lo está. Tres decimales no son centavos y no se guardan.
+    expect(montoACents('0.005')).toBeNull();
+    expect(montoACents('0,005')).toBeNull();
+  });
+
+  it('lo que Math.round SÍ arregla es el error del binario', () => {
+    // Number('8.2') * 100 = 819.9999999999999. Con `trunc` serían $8.19: un
+    // centavo por línea, en silencio y en el lado malo.
+    expect(Number('8.2') * 100).not.toBe(820);
+    expect(montoACents('8,20')).toBe(820);
   });
 
   it.each([

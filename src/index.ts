@@ -35,4 +35,4 @@ export { PR_TZ, aISOenPR, hoyPR, masDias } from './fechas.js';
 export { montoValido, montoACents, centsATexto } from './dinero.js';
 
 /** La versión del paquete. El CI comprueba que cuadre con el tag. */
-export const VERSION = '0.3.0';
+export const VERSION = '0.3.1';

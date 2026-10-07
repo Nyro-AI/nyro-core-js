@@ -4,7 +4,7 @@ La capa de librería de los ERPs de Nyro: **lógica de negocio sin interfaz**,
 compartida por los cuatro verticales (servicios, retail, dealer, restaurante).
 
 ```bash
-npm i "git+https://github.com/Nyro-AI/nyro-core-js.git#v0.3.0"
+npm i "git+https://github.com/Nyro-AI/nyro-core-js.git#v0.3.1"
 ```
 
 ```ts

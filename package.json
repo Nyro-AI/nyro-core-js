@@ -1,6 +1,6 @@
 {
   "name": "@nyro-ai/core",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "La capa de librer\u00eda de los ERPs de Nyro: l\u00f3gica de negocio sin interfaz.",
   "license": "UNLICENSED",
   "type": "module",
@@ -21,7 +21,11 @@
       "types": "./dist/fechas.d.ts",
       "import": "./dist/fechas.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./dinero": {
+      "types": "./dist/dinero.d.ts",
+      "import": "./dist/dinero.js"
+    }
   },
   "bin": {
     "nyro-barrido-fechas": "./bin/barrido-fechas.mjs"

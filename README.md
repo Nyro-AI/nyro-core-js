@@ -4,13 +4,14 @@ La capa de librería de los ERPs de Nyro: **lógica de negocio sin interfaz**,
 compartida por los cuatro verticales (servicios, retail, dealer, restaurante).
 
 ```bash
-npm i "git+https://github.com/Nyro-AI/nyro-core-js.git#v0.2.0"
+npm i "git+https://github.com/Nyro-AI/nyro-core-js.git#v0.3.0"
 ```
 
 ```ts
-import { hoyPR, masDias } from '@nyro-ai/core';
+import { hoyPR, masDias, montoACents } from '@nyro-ai/core';
 
 const vence = masDias(hoyPR(), 30);   // el vencimiento a 30 días, en el día de PR
+const cents = montoACents('12,50');   // 1250 — la coma, que es como se teclea aquí
 ```
 
 ## Dónde encaja, porque los nombres se parecen
@@ -103,6 +104,64 @@ Cuatro horas al día, todos los días.
 de una cita, una auditoría— `new Date()` y `toISOString()` a secas siguen siendo
 lo correcto, y la base lo guarda en UTC. Esto es solo para el **día de
 calendario**: un vencimiento, la fecha de una cita, «las horas de hoy».
+
+## `dinero` — lo tecleado, a centavos
+
+```ts
+montoValido(s): boolean            // ¿es tecleable como dinero? (vacío SÍ lo es)
+montoACents(s): number | null      // centavos enteros, o null si no hay número
+centsATexto(cents): string         // "48.00", para precargar un campo editable
+```
+
+Existe porque los campos de dinero se reformateaban en cada tecla: escribías «1»
+y saltaban a «1.00» antes de que pudieras poner el «.25». La pantalla guarda el
+texto tal cual y llama aquí **al guardar**.
+
+**La regla: lo que no se entiende no se guarda.** Ni se convierte a 0, ni a «sin
+precio», ni se manda a ver qué dice la base. Los tres verticales se encontraron
+el mismo accidente por su lado — un pago de $0 que aparece en el cuadre, una
+nómina que paga de menos, un servicio que se queda sin precio.
+
+### La coma se acepta
+
+En Puerto Rico se teclea `12,50` sin pensarlo. Retail y restaurante la aceptaban;
+servicios la rechazaba y no dejaba guardar. **Gana aceptarla**: negarse a guardar
+lo que la persona quiso decir sin ambigüedad no protege de nada.
+
+Lo que sí protege es que no se **adivine**:
+
+| se teclea | sale | por qué |
+|---|---|---|
+| `12,50` · `12.50` | 1250 | la misma cifra, los dos teclados |
+| `.50` · `,50` | 50 | sin el cero delante |
+| `12,` | 1200 | el separador sin decimales detrás todavía es 12 |
+| `1,234` | **se niega** | ¿1.23 o mil doscientos? No se elige por nadie |
+| `1.2345` | **se niega** | más de dos decimales no son centavos |
+| `-5` | **se niega** | el signo lo decide la columna, no el teclado |
+| `1e3` · `$25` · `abc` | **se niega** | |
+
+**Vacío es válido y no trae número**, y esa distinción es toda la gracia:
+`montoValido('')` es `true`, `montoACents('')` es `null`. «Sin poner» no es cero
+— en un precio de catálogo, `null` es «sin precio decidido» y `0` es «gratis».
+
+### Si tu backend usa `exclude_unset`
+
+`montoACents` devuelve `null`. Si necesitas que la clave **no viaje** (para que
+el backend deje el valor como estaba), envuélvelo en tu repo:
+
+```ts
+const centavosDe = (t: string) => montoACents(t) ?? undefined;
+```
+
+No se cambia aquí: mandar `null` donde se esperaba «no lo toques» **borra** el
+valor que había, que es justo el accidente que este módulo evita.
+
+### Lo que NO entra
+
+Qué importes son válidos para **cada columna** — «mayor que cero» para un cobro,
+«cero sí pero negativo no» para un precio. Eso es la regla de una columna de un
+vertical y vive al lado de su migración. Y el IVU tampoco: esto convierte texto a
+centavos, el impuesto es otra cosa.
 
 ## El barrido
 
